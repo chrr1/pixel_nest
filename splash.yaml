@@ -1,0 +1,13 @@
+flutter_native_splash:
+  color: "#FFFFFF" # Warna latar belakang splash screen (putih)
+  color_dark: "#000000" # Warna latar belakang splash screen (hitam untuk mode gelap)
+  image: assets/splash/logo.jpg # Path relatif gambar logo
+  image_dark: assets/splash/logo.jpg # Path relatif gambar logo untuk mode gelap
+
+  android_12:
+    color: "#FFFFFF" # Warna latar belakang untuk Android 12+ (putih)
+    color_dark: "#000000" # Warna latar belakang untuk mode gelap Android 12+ (hitam)
+    image: assets/splash/logo.jpg # Path relatif gambar logo
+    image_dark: assets/splash/logo.jpg # Path relatif gambar logo untuk mode gelap
+
+  web: false

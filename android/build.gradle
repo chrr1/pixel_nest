@@ -1,0 +1,32 @@
+buildscript {
+    repositories {
+        google()  // Menambahkan Google repository untuk Firebase dan lainnya
+        mavenCentral()
+    }
+    dependencies {
+        // Menambahkan classpath google-services untuk Firebase
+        classpath 'com.android.tools.build:gradle:7.2.2' // Sesuaikan versi dengan proyek Anda
+        classpath 'com.google.gms:google-services:4.4.2'
+    }
+}
+
+allprojects {
+    repositories {
+        google()  // Repository Google agar Firebase dapat terintegrasi
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

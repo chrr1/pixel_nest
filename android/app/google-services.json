@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "571703132580",
+    "firebase_url": "https://projectandro-ed222-default-rtdb.firebaseio.com",
+    "project_id": "projectandro-ed222",
+    "storage_bucket": "projectandro-ed222.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:571703132580:android:b6488cba2ea8ad08860131",
+        "android_client_info": {
+          "package_name": "com.example.pixel_nest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAihsEYH3gwRyM2JC4tjLtJFRioPg7MxPY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:571703132580:android:e7884875a1b9014a860131",
+        "android_client_info": {
+          "package_name": "com.example.projectandro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAihsEYH3gwRyM2JC4tjLtJFRioPg7MxPY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
