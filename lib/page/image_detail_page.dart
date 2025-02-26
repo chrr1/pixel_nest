@@ -442,50 +442,64 @@ Padding(
     mainAxisAlignment: MainAxisAlignment.start,
     children: [
       Padding(
-        padding: const EdgeInsets.only(right: 8.0), // Spasi antara ikon dan teks
+        padding: const EdgeInsets.only(right: 20.0), // Spasi antara ikon dan teks
         child: Row(
           children: [
-           IconButton(
+         IconButton(
   icon: Icon(
-    widget.mediaData.isLiked == 1 
-        ? Icons.favorite 
+    widget.mediaData.isLiked == 1
+        ? Icons.favorite
         : Icons.favorite_border,
-    color: widget.mediaData.isLiked == 1 ? Colors.red : Colors.grey,
+    color: widget.mediaData.isLiked == 1
+        ? Colors.red
+        : MediaQuery.of(context).platformBrightness == Brightness.dark
+            ? Colors.white
+            : Colors.black,
   ),
+  padding: EdgeInsets.zero, // Menghilangkan padding bawaan
+  visualDensity: VisualDensity.compact, // Memperkecil ruang sekitar ikon
+  iconSize: 28.0,
   onPressed: _toggleLike,
 ),
 
-            const SizedBox(width: 4),
+
+const SizedBox(width: 0),
+           
             Text(
               widget.mediaData.likes.toString(), // Menampilkan jumlah like
               style: TextStyle(
                 color: textColor,
+                fontSize: 17,
+                fontFamily: 'Poppins',
               ),
             ),
-          ],
+         ],
         ),
       ),
     ],
-  ),
+  ), 
 ),
 
       // Ikon Komentar dan teks
       Padding(
-        padding: const EdgeInsets.only(right: 2.0), // Spasi antara ikon dan teks
-        child: Row(
-          children: [
-            Icon(
-              Icons.chat_bubble_outline,
-              color: textColor,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              "13", // Teks yang ditambahkan
-              style: TextStyle(
-                color: textColor,
-              ),
-            ),
-          ],
+  padding: const EdgeInsets.only(right: 15.0), // Spasi antara ikon dan teks
+  child: Row(
+    children: [
+      Image.asset(
+        MediaQuery.of(context).platformBrightness == Brightness.dark
+            ? 'assets/images/chat_white.png'
+            : 'assets/images/chat.png',
+        width: 22.0,
+        height: 22.0,
+        color: null, // Mencegah pewarnaan otomatis
+      ),
+      const SizedBox(width: 6),
+      Text(
+        "0", // Teks yang ditambahkan
+        style: TextStyle(
+          color: textColor,
+          fontSize: 17,
+          fontFamily: 'Poppins',
         ),
       ),
     ],
@@ -493,32 +507,19 @@ Padding(
 ),
 
 
-                // UI untuk data lainnya
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
-                  child: Align(
-                    alignment:
-                        Alignment.centerLeft, // Menentukan agar teks rata kiri
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start, // Pastikan teks di kiri
-                      children: [
-                        ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: AssetImage('assets/images/2.jpg'),
-                          ),
-                          title: Text(
-                            uploadedBy,
-                            style: TextStyle(
-                                fontFamily: 'Roboto', color: textColor),
-                          ),
-                          subtitle: Text(
-                            "10K Followers",
-                            style: TextStyle(
-                                fontFamily: 'Roboto', color: textColor),
-                          ),
-                          trailing: PopupMenuButton<String>(
-  icon: const Icon(Icons.more_vert),
+
+Padding(
+  padding: const EdgeInsets.only(right: 130.0),
+  child: Row(
+    children: [
+      PopupMenuButton<String>(
+  icon: Icon(
+          Icons.more_horiz,
+          color: MediaQuery.of(context).platformBrightness == Brightness.dark
+              ? Colors.white
+              : Colors.black,
+          size: 35.0, // Atur ukuran ikon
+        ),
   shape: RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(12),
   ),
@@ -652,10 +653,56 @@ Padding(
       ? Colors.white
       : Colors.black,
 ),
+    ],
+  ),// Spasi antara ikon dan teks
+),
+
+Padding(
+  padding: const EdgeInsets.all(8.0),
+  child: Icon(
+    Icons.bookmark_border,
+    color: MediaQuery.of(context).platformBrightness == Brightness.dark
+        ? Colors.white
+        : Colors.black,
+    size: 33.0,
+  ),
+),
 
 
 
-                        ),
+    ],
+  ),
+),
+
+
+                // UI untuk data lainnya
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+                  child: Align(
+                    alignment:
+                        Alignment.centerLeft, // Menentukan agar teks rata kiri
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start, // Pastikan teks di kiri
+                      children: [
+                     ListTile(
+  contentPadding: EdgeInsets.zero, // Hilangkan padding bawaan
+  leading: CircleAvatar(
+    radius: 15, // Sesuaikan ukuran avatar
+    backgroundImage: AssetImage('assets/images/2.jpg'),
+  ),
+  title: Text(
+    uploadedBy,
+    style: TextStyle(
+      fontFamily: 'Poppins',
+      color: textColor,
+      fontSize: 15, // Sesuaikan ukuran title
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+),
+
+
                         SizedBox(height: 16),
                         Padding(
   padding: const  EdgeInsets.only(left: 8.0, right: 8.0),
@@ -664,7 +711,7 @@ Padding(
     style: TextStyle(
       fontSize: 22,
       fontWeight: FontWeight.bold,
-      fontFamily: 'Roboto',
+      fontFamily: 'Poppins',
       color: textColor,
     ),
     textAlign: TextAlign.left,
@@ -677,7 +724,7 @@ Padding(
     description,
     style: TextStyle(
       fontSize: 16,
-      fontFamily: 'Roboto',
+      fontFamily: 'Poppins',
       color: textColor,
     ),
     textAlign: TextAlign.left,

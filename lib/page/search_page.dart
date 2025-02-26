@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:pixel_nest/models/media_data.dart';
 import 'package:pixel_nest/page/media_picker.dart';
 import 'package:pixel_nest/page/notification_page.dart';
+import 'package:pixel_nest/page/search_result.dart';
 import 'package:pixel_nest/page/upload_page.dart';
 import 'dart:async';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -15,23 +16,56 @@ import 'package:flutter/services.dart';
 import 'package:pixel_nest/page/image_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
+  
   @override
   _SearchPageState createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> with AutomaticKeepAliveClientMixin{
   final DatabaseReference _databaseRef = FirebaseDatabase.instance.ref("uploads");
+   final TextEditingController _searchController = TextEditingController();
   List<MediaData> _filteredMedia = [];
    List<MediaData> _filteredMedia2 = [];
    List<MediaData> _filteredMedia3 = [];
-    List<MediaData> _allMedia = [];
-  List<MediaData> _searchResults = [];
-   List<MediaData> mediaPaths = [];
-  TextEditingController _searchController = TextEditingController();
   @override
   bool get wantKeepAlive => true;
 
   int _selectedIndex = 1;
+
+   void _searchMedia(String query, String currentUserId, BuildContext context) async {
+  final ref = FirebaseDatabase.instance.ref().child("uploads");
+  final snapshot = await ref.get();
+
+  if (snapshot.exists) {
+    Map<dynamic, dynamic> data = snapshot.value as Map<dynamic, dynamic>;
+    List<MediaData> results = [];
+
+    data.forEach((key, value) {
+      MediaData media = MediaData.fromMap(value, currentUserId);
+      if (media.title.toLowerCase().contains(query.toLowerCase()) ||
+          media.description.toLowerCase().contains(query.toLowerCase()) ||
+          media.hashtag.toLowerCase().contains(query.toLowerCase())) {
+        results.add(media);
+      }
+    });
+
+    // Navigasi ke SearchResultPage dengan membawa hasil pencarian dan query
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchResultPage(
+          searchResults: results,
+          initialQuery: query, // Kirim query
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
 
   void _showAddOptions(BuildContext context) async {
   final brightness = MediaQuery.of(context).platformBrightness;
@@ -237,7 +271,6 @@ Future<void> _accessStorage() async {
     _fetchFilteredMedia();
     _fetchFilteredMedia2();
     _fetchFilteredMedia3();
-    _fetchAllMedia();
     
     // Timer untuk auto-slide
     _sliderTimer = Timer.periodic(Duration(seconds: 3), (timer) {
@@ -252,52 +285,6 @@ Future<void> _accessStorage() async {
         curve: Curves.easeInOut,
       );
       setState(() {});
-    });
-  }
-
-  Future<void> _fetchAllMedia() async {
-    try {
-      final snapshot = await _databaseRef.get();
-      if (snapshot.exists) {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(snapshot.value as Map);
-        final User? user = FirebaseAuth.instance.currentUser;
-        final String currentUserId = user?.uid ?? '';
-
-        final mediaList = data.entries
-            .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
-            .toList();
-
-        setState(() {
-          _allMedia = mediaList;
-          _searchResults = mediaList;
-        });
-      }
-    } catch (e) {
-      print("Error fetching data: $e");
-      setState(() {
-        _allMedia = [];
-        _searchResults = [];
-      });
-    }
-  }
-
-  void _searchMedia(String query) {
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = _allMedia;
-      });
-      return;
-    }
-
-    final lowerQuery = query.toLowerCase();
-    final results = _allMedia.where((media) =>
-        media.title.toLowerCase().contains(lowerQuery) ||
-        media.description.toLowerCase().contains(lowerQuery) ||
-        media.hashtag.toLowerCase().contains(lowerQuery)
-    ).toList();
-
-    setState(() {
-      _searchResults = results;
     });
   }
 
@@ -479,33 +466,29 @@ Widget build(BuildContext context) {
         ),
         child: Row(
           children: [
+            Icon(Icons.search, color: Colors.black),
             Expanded(
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: "Cari media...",
-          border: OutlineInputBorder(),
-        ),
-        onChanged: _searchMedia,
-      ),
-            ),
-          
-          Expanded(
-            
-            child: ListView.builder(
-              itemCount: _searchResults.length,
-              itemBuilder: (context, index) {
-                final media = _searchResults[index];
-                return ListTile(
-                  leading: Image.network(media.mediaUrl, width: 50, height: 50, fit: BoxFit.cover),
-                  title: Text(media.title),
-                  subtitle: Text(media.description),
-                  
-                );
-              },
-              
-            ),
-          ),
+  child: TextField(
+    controller: _searchController,
+    decoration: InputDecoration(
+      hintText: 'Cari...',
+      border: InputBorder.none,
+      contentPadding: EdgeInsets.symmetric(vertical: 14.0),
+    ),
+    style: TextStyle(fontFamily: 'Roboto', color: Colors.black),
+   onSubmitted: (value) {
+  if (value.isNotEmpty) {
+    // Ambil userId dari Firebase Auth
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _searchMedia(value, currentUserId, context);
+  }
+},
+
+
+
+  ),
+),
+
           ],
         ),
       ),
@@ -545,7 +528,369 @@ Widget build(BuildContext context) {
               activeDotColor: Colors.blue,
             ),
           ),
-         
+          Padding(
+            padding: const EdgeInsets.only(top: 20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // Pemisah teks dan ikon
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft, // Teks tetap rata kiri
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0), // Tambahkan margin kiri
+                    child: Row(
+                      children: [
+                        // Lingkaran putih dengan bayangan untuk simbol #
+                        Container(
+                          width: 30.0, // Ukuran lingkaran
+                          height: 30.0,
+                          decoration: BoxDecoration(
+                            color: Colors.white, // Warna latar putih
+                            shape: BoxShape.circle, // Membuat bentuk lingkaran
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.5), // Warna bayangan
+                                blurRadius: 6, // Radius bayangan
+                                offset: Offset(0, 3), // Posisi bayangan
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              '#',
+                              style: TextStyle(
+                                fontSize: 20.0,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                color:  Colors.black, // Teks sesuai mode
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.0), // Spasi antara lingkaran dan teks
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start, // Rata kiri untuk teks
+                          children: [
+                            Text(
+                              'fyp',
+                              style: TextStyle(
+                                fontSize: 16.0,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                color: isDarkMode ? Colors.white : Colors.black, // Teks sesuai mode
+                              ),
+                            ),
+                            Text(
+                              'Most Uploaded',
+                              style: TextStyle(
+                                fontSize: 12.0,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Roboto',
+                                color: isDarkMode ? Colors.white70 : Colors.grey, // Teks lebih redup di mode gelap
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 2.0), // Menambahkan margin kanan
+                  child: GestureDetector(
+                    onTap: () {
+                      // Aksi saat "See All" atau ikon diklik
+                      print("See All clicked");
+                    },
+                    child: Row(
+                      children: [
+                        Text(
+                          'See All',
+                          style: TextStyle(
+                            fontSize: 14.0,
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w700,
+                            color: isDarkMode ? Colors.white : Colors.black, // Teks sesuai mode
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: isDarkMode ? Colors.white : Colors.black, // Ikon sesuai mode
+                          size: 20.0,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Menampilkan gambar kategori yang berbeda
+          Padding(
+  padding: const EdgeInsets.all(5.0),
+  child: _filteredMedia.isEmpty
+      ? Center(child: CircularProgressIndicator()) // Menampilkan loading saat data kosong
+      : _filteredMedia.length == 0
+          ? Center(child: Text("No media found for #fyp")) // Menampilkan pesan jika tidak ada media
+          : Container(
+              height: 130.0,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _filteredMedia.length,
+                itemBuilder: (context, index) {
+                  final mediaData = _filteredMedia[index];  // Mengambil objek MediaData
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                    child: _buildCategoryImage(mediaData), // Mengirimkan objek MediaData
+                  );
+                },
+              ),
+            ),
+),
+
+
+
+
+          Padding(
+            padding: const EdgeInsets.only(top: 20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // Pemisah teks dan ikon
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft, // Teks tetap rata kiri
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0), // Tambahkan margin kiri
+                    child: Row(
+                      children: [
+                        // Lingkaran putih dengan bayangan untuk simbol #
+                        Container(
+                          width: 30.0, // Ukuran lingkaran
+                          height: 30.0,
+                          decoration: BoxDecoration(
+                            color: Colors.white, // Warna latar putih
+                            shape: BoxShape.circle, // Membuat bentuk lingkaran
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.5), // Warna bayangan
+                                blurRadius: 6, // Radius bayangan
+                                offset: Offset(0, 3), // Posisi bayangan
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              '#',
+                              style: TextStyle(
+                                fontSize: 20.0,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                color:  Colors.black, // Teks sesuai mode
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.0), // Spasi antara lingkaran dan teks
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start, // Rata kiri untuk teks
+                          children: [
+                            Text(
+                              'foryourpixel',
+                              style: TextStyle(
+                                fontSize: 16.0,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                color: isDarkMode ? Colors.white : Colors.black, // Teks sesuai mode
+                              ),
+                            ),
+                            Text(
+                              'Liked',
+                              style: TextStyle(
+                                fontSize: 12.0,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Roboto',
+                                color: isDarkMode ? Colors.white70 : Colors.grey, // Teks lebih redup di mode gelap
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 2.0), // Menambahkan margin kanan
+                  child: GestureDetector(
+                    onTap: () {
+                      // Aksi saat "See All" atau ikon diklik
+                      print("See All clicked");
+                    },
+                    child: Row(
+                      children: [
+                        Text(
+                          'See All',
+                          style: TextStyle(
+                            fontSize: 14.0,
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w700,
+                            color: isDarkMode ? Colors.white : Colors.black, // Teks sesuai mode
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: isDarkMode ? Colors.white : Colors.black, // Ikon sesuai mode
+                          size: 20.0,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Menampilkan gambar kategori yang berbeda
+           Padding(
+  padding: const EdgeInsets.all(5.0),
+  child: _filteredMedia2.isEmpty
+      ? Center(child: CircularProgressIndicator()) // Menampilkan loading saat data kosong
+      : _filteredMedia2.length == 0
+          ? Center(child: Text("No media found for #fyp")) // Menampilkan pesan jika tidak ada media
+          : Container(
+              height: 130.0,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _filteredMedia2.length,
+                itemBuilder: (context, index) {
+                  final mediaData = _filteredMedia2[index];  // Mengambil objek MediaData
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                    child: _buildCategoryImage(mediaData), // Mengirimkan objek MediaData
+                  );
+                },
+              ),
+            ),
+),
+
+
+          Padding(
+            padding: const EdgeInsets.only(top: 20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // Pemisah teks dan ikon
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft, // Teks tetap rata kiri
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0), // Tambahkan margin kiri
+                    child: Row(
+                      children: [
+                        // Lingkaran putih dengan bayangan untuk simbol #
+                        Container(
+                          width: 30.0, // Ukuran lingkaran
+                          height: 30.0,
+                          decoration: BoxDecoration(
+                            color: Colors.white, // Warna latar putih
+                            shape: BoxShape.circle, // Membuat bentuk lingkaran
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.5), // Warna bayangan
+                                blurRadius: 6, // Radius bayangan
+                                offset: Offset(0, 3), // Posisi bayangan
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              '#',
+                              style: TextStyle(
+                                fontSize: 20.0,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                color:  Colors.black, // Teks sesuai mode
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.0), // Spasi antara lingkaran dan teks
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start, // Rata kiri untuk teks
+                          children: [
+                            Text(
+                              'aesthetic',
+                              style: TextStyle(
+                                fontSize: 16.0,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                color: isDarkMode ? Colors.white : Colors.black, // Teks sesuai mode
+                              ),
+                            ),
+                            Text(
+                              'Liked',
+                              style: TextStyle(
+                                fontSize: 12.0,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Roboto',
+                                color: isDarkMode ? Colors.white70 : Colors.grey, // Teks lebih redup di mode gelap
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 2.0), // Menambahkan margin kanan
+                  child: GestureDetector(
+                    onTap: () {
+                      // Aksi saat "See All" atau ikon diklik
+                      print("See All clicked");
+                    },
+                    child: Row(
+                      children: [
+                        Text(
+                          'See All',
+                          style: TextStyle(
+                            fontSize: 14.0,
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w700,
+                            color: isDarkMode ? Colors.white : Colors.black, // Teks sesuai mode
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: isDarkMode ? Colors.white : Colors.black, // Ikon sesuai mode
+                          size: 20.0,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Menampilkan gambar kategori yang berbeda
+          Padding(
+  padding: const EdgeInsets.all(5.0),
+  child: _filteredMedia3.isEmpty
+      ? Center(child: CircularProgressIndicator()) // Menampilkan loading saat data kosong
+      : _filteredMedia3.length == 0
+          ? Center(child: Text("No media found for #fyp")) // Menampilkan pesan jika tidak ada media
+          : Container(
+              height: 130.0,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _filteredMedia3.length,
+                itemBuilder: (context, index) {
+                  final mediaData = _filteredMedia3[index];  // Mengambil objek MediaData
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                    child: _buildCategoryImage(mediaData), // Mengirimkan objek MediaData
+                  );
+                },
+              ),
+            ),
+),
         ],
       ),
     ),

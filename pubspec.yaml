@@ -112,6 +112,8 @@ flutter:
     - assets/images/1.jpg
     - assets/images/2.jpg
     - assets/images/3.jpg
+    - assets/images/chat.png
+    - assets/images/chat_white.png
     
     - assets/splash/logo.jpg
     - assets/splash/logo.png
