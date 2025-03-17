@@ -232,16 +232,8 @@ Future<void> _accessStorage() async {
           reverseTransitionDuration: Duration.zero,
         ),
       );
+   
     } else if (index == 3) {
-      Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => NotificationPage(),
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-        ),
-      );
-    } else if (index == 4) {
       Navigator.push(
         context,
         PageRouteBuilder(
@@ -288,7 +280,7 @@ Future<void> _accessStorage() async {
     });
   }
 
-  Future<void> _fetchFilteredMedia() async {
+ Future<void> _fetchFilteredMedia() async {
   try {
     final snapshot = await _databaseRef.get();
     if (snapshot.exists) {
@@ -301,7 +293,7 @@ Future<void> _accessStorage() async {
 
       final filtered = data.entries
           .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
-          .where((media) => media.hashtag == '#fyp')
+          .where((media) => media.hashtag == '#fyp' && media.type == 'image') // Hanya 'image'
           .toList();
 
       print("Filtered Media: $filtered");
@@ -325,6 +317,7 @@ Future<void> _accessStorage() async {
 
 
 
+
 Future<void> _fetchFilteredMedia2() async {
   try {
     final snapshot = await _databaseRef.get();
@@ -338,7 +331,7 @@ Future<void> _fetchFilteredMedia2() async {
 
       final filtered = data.entries
           .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
-          .where((media) => media.hashtag == '#foryourpixel')
+          .where((media) => media.hashtag == '#foryourpixel' && media.type == 'image')
           .toList();
 
       print("Filtered Media: $filtered");
@@ -374,7 +367,7 @@ Future<void> _fetchFilteredMedia3() async {
 
       final filtered = data.entries
           .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
-          .where((media) => media.hashtag == '#aesthetic')
+          .where((media) => media.hashtag == '#aesthetic' && media.type == 'image')
           .toList();
 
       print("Filtered Media: $filtered");
@@ -594,6 +587,7 @@ Widget build(BuildContext context) {
                     ),
                   ),
                 ),
+                
                 Padding(
                   padding: const EdgeInsets.only(right: 2.0), // Menambahkan margin kanan
                   child: GestureDetector(
@@ -624,6 +618,7 @@ Widget build(BuildContext context) {
               ],
             ),
           ),
+
 
           // Menampilkan gambar kategori yang berbeda
           Padding(
@@ -717,7 +712,7 @@ Widget build(BuildContext context) {
                     ),
                   ),
                 ),
-                Padding(
+                 Padding(
                   padding: const EdgeInsets.only(right: 2.0), // Menambahkan margin kanan
                   child: GestureDetector(
                     onTap: () {
@@ -748,6 +743,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
+
           // Menampilkan gambar kategori yang berbeda
            Padding(
   padding: const EdgeInsets.all(5.0),
@@ -756,7 +752,7 @@ Widget build(BuildContext context) {
       : _filteredMedia2.length == 0
           ? Center(child: Text("No media found for #fyp")) // Menampilkan pesan jika tidak ada media
           : Container(
-              height: 130.0,
+              height: 130.0, 
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _filteredMedia2.length,
@@ -869,6 +865,7 @@ Widget build(BuildContext context) {
             ),
           ),
 
+
           // Menampilkan gambar kategori yang berbeda
           Padding(
   padding: const EdgeInsets.all(5.0),
@@ -933,14 +930,7 @@ Widget build(BuildContext context) {
             label: 'Add',
             backgroundColor: isDarkMode ? Colors.black : Colors.white, // Background color based on theme
           ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.notifications,
-              
-            ),
-            label: 'Notification',
-            backgroundColor: isDarkMode ? Colors.black : Colors.white, // Background color based on theme
-          ),
+          
           BottomNavigationBarItem(
             icon: Icon(
               Icons.account_circle,

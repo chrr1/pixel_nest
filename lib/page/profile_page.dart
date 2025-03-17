@@ -6,6 +6,9 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pixel_nest/auth/login.dart';
+import 'package:pixel_nest/models/media_data.dart';
+import 'package:pixel_nest/page/edit_profile_page.dart';
+import 'package:pixel_nest/page/image_detail_page.dart';
 import 'package:pixel_nest/page/media_picker.dart';
 import 'package:pixel_nest/page/notification_page.dart';
 import 'package:pixel_nest/page/search_page.dart';
@@ -27,10 +30,20 @@ class _ProfilePageState extends State<ProfilePage> {
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid; // Mendapatkan UID pengguna saat ini
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+List<MediaData> _filteredMedia = [];
   List<String> _mediaUrls = [];
   String? _username = '';
   String? _email = '';
+  String? _profileImage;
+
+  List<MediaData> _userMedia = [];
+  List<MediaData> _likedMedia = [];
+  List<MediaData> _bookmarkedMedia = [];
   List<Map<String, dynamic>> _likedMediaUrls = []; // Deklarasi variabel
+
+List<Map<String, dynamic>> _mediaData = [];
+
+
 
 
   @override
@@ -38,18 +51,33 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _fetchUserDetails();
     _fetchMediaUrls();
-    getLikedMedia();
+    _fetchUserMedia();
+    _fetchLikedMedia();
+    _fetchBookmarkedMedia();
+   
   }
 
   Future<void> _fetchUserDetails() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      setState(() {
-        _username = user.displayName ?? 'No Username'; // Nama pengguna
-        _email = user.email ?? 'No Email'; // Email pengguna
-      });
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
+    
+    try {
+      final snapshot = await userRef.get();
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        setState(() {
+          _username = data['username'] ?? 'No Username'; // Nama pengguna
+          _email = data['email'] ?? 'No Email'; // Email pengguna
+          _profileImage = data['profileImage'] ?? ''; // URL Foto Profil
+        });
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
     }
   }
+}
+
 
  Future<void> _fetchMediaUrls() async {
   if (_currentUserId == null) {
@@ -59,26 +87,75 @@ class _ProfilePageState extends State<ProfilePage> {
 
   try {
     final dataSnapshot = await _databaseRef.get();
-    print('Data Snapshot: ${dataSnapshot.value}'); // Debugging untuk melihat data
+    print('Data Snapshot: ${dataSnapshot.value}'); // Debugging
 
-    if (dataSnapshot.exists) {
-      final Map<dynamic, dynamic>? data = dataSnapshot.value as Map<dynamic, dynamic>?;
-      if (data != null) {
-        setState(() {
-          _mediaUrls = data.entries
-              .where((entry) => entry.value['userId'] == _currentUserId) 
-              .map<String>((entry) => entry.value['mediaUrl'] as String)
-              .toList();
-          print('Media URLs: $_mediaUrls'); // Debugging
-        });
-      }
+    if (dataSnapshot.exists && dataSnapshot.value is Map) {
+      final Map<dynamic, dynamic> data = dataSnapshot.value as Map<dynamic, dynamic>;
+
+      setState(() {
+        _mediaData = data.entries.map<Map<String, dynamic>>((entry) {
+          final entryValue = entry.value as Map<dynamic, dynamic>;
+          return {
+            'idData': entry.key, // Gunakan key sebagai idData jika tidak ada
+            'mediaUrl': entryValue['mediaUrl'] ?? '',
+            'title': entryValue['title'] ?? '',
+            'description': entryValue['description'] ?? '',
+            'hashtag': entryValue['hashtag'] ?? '',
+            'type': entryValue['type'] ?? '',
+            'uploadedBy': entryValue['uploadedBy'] ?? '',
+            'timestamp': entryValue['timestamp'] ?? '',
+            'likes': entryValue['likes'] ?? {},
+            'isLiked': entryValue['isLiked']?[_currentUserId] ?? 0,
+            'bookmarks': entryValue['bookmarks']?[_currentUserId] ?? false,
+          };
+        }).toList();
+
+        print('Fetched Media Data: $_mediaData'); // Debugging
+      });
     } else {
       print('No data found');
     }
   } catch (e) {
-    print('Error fetching media URLs: $e');
+    print('Error fetching media data: $e');
   }
 }
+
+
+
+Future<void> _fetchBookmarkedMedia() async {
+  try {
+    final snapshot = await _databaseRef.get();
+    if (snapshot.exists) {
+      final Map<String, dynamic> data = Map<String, dynamic>.from(snapshot.value as Map);
+      print("Data from Firebase: $data");
+
+      final User? user = FirebaseAuth.instance.currentUser;
+      final String currentUserId = user?.uid ?? '';
+
+      final bookmarkedMedia = data.entries
+          .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
+          .where((media) => media.isBookmarked) // Gunakan isBookmarked langsung
+          .toList();
+
+      setState(() {
+        _bookmarkedMedia = bookmarkedMedia;
+      });
+    } else {
+      setState(() {
+        _bookmarkedMedia = [];
+      });
+    }
+  } catch (e) {
+    print("Error fetching bookmarked media: $e");
+    setState(() {
+      _bookmarkedMedia = [];
+    });
+  }
+}
+
+
+
+
 
 void _confirmLogout() {
   bool isDarkMode = MediaQuery.of(context).platformBrightness == Brightness.dark;
@@ -169,7 +246,7 @@ void _confirmLogout() {
 
 
   
-  int _selectedIndex = 4; // Menetapkan indeks awal untuk profil
+  int _selectedIndex = 3; // Menetapkan indeks awal untuk profil
 void _showAddOptions(BuildContext context) async {
   final brightness = MediaQuery.of(context).platformBrightness;
   final isDarkMode = brightness == Brightness.dark;
@@ -200,7 +277,7 @@ Future<void> _accessStorage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       print('Foto diambil dari galeri: ${image.path}');
-      // Navigasi ke UploadPage dengan path gambar yang diambil
+      
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -353,28 +430,70 @@ Future<void> _accessStorage() async {
     }
   }
 
-  void getLikedMedia() {
-  final userId = FirebaseAuth.instance.currentUser?.uid; // Ambil UID user yang sedang login
-  FirebaseDatabase.instance.ref('uploads').once().then((snapshot) {
-    final data = snapshot.snapshot.value as Map<dynamic, dynamic>?;
-    if (data != null) {
-      List<Map<String, dynamic>> mediaList = [];
-      data.forEach((mediaId, mediaData) {
-        // Cek apakah ada isLiked dan UID-nya sama dengan user yang login
-        if (mediaData['isLiked'] != null && mediaData['isLiked'][userId] == 1) {
-          mediaList.add({
-            'mediaUrl': mediaData['mediaUrl'],
-            'description': mediaData['description'],
-            'mediaId': mediaId,
-          });
-        }
-      });
+  Future<void> _fetchLikedMedia() async {
+  try {
+    final snapshot = await _databaseRef.get();
+    if (snapshot.exists) {
+      final Map<String, dynamic> data = Map<String, dynamic>.from(snapshot.value as Map);
+      print("Data from Firebase: $data");
+
+      final User? user = FirebaseAuth.instance.currentUser;
+      final String currentUserId = user?.uid ?? '';
+
+      final likedMedia = data.entries
+          .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
+          .where((media) => media.isLiked == 1)
+          .toList();
+
       setState(() {
-        _likedMediaUrls = mediaList;
+        _likedMedia = likedMedia;
+      });
+    } else {
+      setState(() {
+        _likedMedia = [];
       });
     }
-  });
+  } catch (e) {
+    print("Error fetching liked media: $e");
+    setState(() {
+      _likedMedia = [];
+    });
+  }
 }
+
+
+Future<void> _fetchUserMedia() async {
+  try {
+    final snapshot = await _databaseRef.get();
+    if (snapshot.exists) {
+      final Map<String, dynamic> data = Map<String, dynamic>.from(snapshot.value as Map);
+      print("Data from Firebase: $data");
+
+      final User? user = FirebaseAuth.instance.currentUser;
+      final String currentUserId = user?.uid ?? '';
+
+      final userMedia = data.entries
+          .map((entry) => MediaData.fromMap(Map<String, dynamic>.from(entry.value), currentUserId))
+          .where((media) => media.userId == currentUserId)
+          .toList();
+
+      setState(() {
+        _userMedia = userMedia;
+      });
+    } else {
+      setState(() {
+        _userMedia = [];
+      });
+    }
+  } catch (e) {
+    print("Error fetching user media: $e");
+    setState(() {
+      _userMedia = [];
+    });
+  }
+}
+
+
 
 
 
@@ -426,18 +545,24 @@ Widget build(BuildContext context) {
             ),
           ),
               const SizedBox(height: 20),
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.blueAccent,
-              child: Text(
-                _username != null && _username!.isNotEmpty ? _username![0] : 'A',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 40,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+           CircleAvatar(
+  radius: 50,
+  backgroundColor: Colors.blueAccent,
+  backgroundImage: (_profileImage != null && _profileImage!.isNotEmpty)
+      ? NetworkImage(_profileImage!)
+      : null,
+  child: (_profileImage == null || _profileImage!.isEmpty)
+      ? Text(
+          (_username != null && _username!.isNotEmpty) ? _username![0] : 'A',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 40,
+            color: Colors.white,
+          ),
+        )
+      : null,
+),
+
             const SizedBox(height: 10),
             Text(
               _username ?? 'Fetching username...',
@@ -458,68 +583,41 @@ Widget build(BuildContext context) {
               ),
             ),
             const SizedBox(height: 10),
+            
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '0 pengikut',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Text(
-                  '0 mengikuti',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontWeight: FontWeight.w600,
-                    color: textColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.black),
-                    backgroundColor: Colors.white,
-                  ),
-                  child: const Text(
-                    'Bagikan',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    side: BorderSide(color: Colors.white),
-                    backgroundColor: backgroundColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    'Edit Profil',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                      backgroundColor: backgroundColor,
-                    ),
-                  ),
-                ),
+               
+                
+               ElevatedButton(
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfilePage(userId: _currentUserId), // Kirim UID pengguna
+      ),
+    );
+  },
+  style: ElevatedButton.styleFrom(
+    side: BorderSide(color: Colors.white),
+    backgroundColor: backgroundColor,
+    foregroundColor: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+  ),
+  child: Text(
+    'Edit Profil',
+    style: TextStyle(
+      fontFamily: 'Roboto',
+      fontWeight: FontWeight.w600,
+      color: textColor,
+      backgroundColor: backgroundColor,
+    ),
+  ),
+),
+
+
               ],
             ),
             const SizedBox(height: 20),
@@ -550,100 +648,176 @@ Widget build(BuildContext context) {
         child: TabBarView(
           children: [
             // Konten untuk Tab Dibuat
-            Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: _mediaUrls.isEmpty
-                  ? Center(child: Text('Tidak ada media yang diunggah'))
-                  : MasonryGridView.builder(
-                      padding: EdgeInsets.zero, // Menghilangkan jarak di dalam grid
-                      itemCount: _mediaUrls.length,
-                      gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, // Jumlah kolom grid
-                      ),
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                _mediaUrls[index],
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      value: progress.expectedTotalBytes != null
-                                          ? progress.cumulativeBytesLoaded /
-                                              progress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Center(child: Icon(Icons.error));
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+             Padding(
+    padding: const EdgeInsets.all(4.0),
+    child: _userMedia.isEmpty
+        ? Center(child: Text('Tidak ada media yang diunggah'))
+        : MasonryGridView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _userMedia.length,
+            gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // Jumlah kolom grid
             ),
+            itemBuilder: (context, index) {
+              MediaData mediaData = _userMedia[index];
 
-           Padding(
-  padding: const EdgeInsets.all(4.0),
-  child: _likedMediaUrls.isEmpty
-      ? Center(child: Text('Tidak ada media yang disukai'))
-      : MasonryGridView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: _likedMediaUrls.length,
-          gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, // Jumlah kolom grid
-          ),
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    _likedMediaUrls[index]['mediaUrl'],
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: progress.expectedTotalBytes != null
-                              ? progress.cumulativeBytesLoaded /
-                                  progress.expectedTotalBytes!
-                              : null,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(child: Icon(Icons.error));
-                    },
+              return Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ImageDetailPage(mediaData: mediaData),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        mediaData.mediaUrl,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: progress.expectedTotalBytes != null
+                                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(child: Icon(Icons.error));
+                        },
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
-        ),
-),
+              );
+            },
+          ),
+  ),
+
+          Padding(
+    padding: const EdgeInsets.all(4.0),
+    child: _likedMedia.isEmpty
+        ? Center(child: Text('Tidak ada media yang diunggah'))
+        : MasonryGridView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _likedMedia.length,
+            gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // Jumlah kolom grid
+            ),
+            itemBuilder: (context, index) {
+              MediaData mediaData = _likedMedia[index];
+
+              return Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ImageDetailPage(mediaData: mediaData),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        mediaData.mediaUrl,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: progress.expectedTotalBytes != null
+                                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(child: Icon(Icons.error));
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+  ),
+
 
 
 
             // Konten untuk Tab Disimpan
-            Center(child: Text('Konten Disimpan')),
+           Padding(
+    padding: const EdgeInsets.all(4.0),
+    child: _bookmarkedMedia.isEmpty
+        ? Center(child: Text('Tidak ada media yang diunggah'))
+        : MasonryGridView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _bookmarkedMedia.length,
+            gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // Jumlah kolom grid
+            ),
+            itemBuilder: (context, index) {
+              MediaData mediaData = _bookmarkedMedia[index];
+
+              return Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ImageDetailPage(mediaData: mediaData),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        mediaData.mediaUrl,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: progress.expectedTotalBytes != null
+                                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(child: Icon(Icons.error));
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+  ),
+
+
           ],
         ),
       ),
@@ -655,48 +829,44 @@ Widget build(BuildContext context) {
         ),
       ),
     ),
-    bottomNavigationBar: BottomNavigationBar(
-      backgroundColor: isDarkMode ? Colors.black : Colors.white, // BottomNav background color based on theme
-      currentIndex: _selectedIndex,
-      onTap: _onItemTapped,
-      selectedItemColor: isDarkMode ? Colors.white : Colors.black, // Selected item color
-      unselectedItemColor: isDarkMode ? Colors.grey[600] : Colors.grey, // Unselected item color
-      selectedLabelStyle: TextStyle(
-        fontFamily: 'Roboto',
-        fontWeight: FontWeight.bold,
-      ),
-      unselectedLabelStyle: TextStyle(
-        fontFamily: 'Roboto',
-        fontWeight: FontWeight.normal,
-      ),
-      items: [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-          backgroundColor: isDarkMode ? Colors.black : Colors.white,
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.search),
-          label: 'Search',
-          backgroundColor: isDarkMode ? Colors.black : Colors.white,
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add),
-          label: 'Add',
-          backgroundColor: isDarkMode ? Colors.black : Colors.white,
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
-          label: 'Notification',
-          backgroundColor: isDarkMode ? Colors.black : Colors.white,
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.account_circle),
-          label: 'Profile',
-          backgroundColor: isDarkMode ? Colors.black : Colors.white,
-        ),
-      ],
+   bottomNavigationBar: BottomNavigationBar(
+  backgroundColor: isDarkMode ? Colors.black : Colors.white,
+  currentIndex: _selectedIndex, // Mencegah index out of range
+  onTap: _onItemTapped,
+  selectedItemColor: isDarkMode ? Colors.white : Colors.black,
+  unselectedItemColor: isDarkMode ? Colors.grey[600] : Colors.grey,
+  selectedLabelStyle: TextStyle(
+    fontFamily: 'Roboto',
+    fontWeight: FontWeight.bold,
+  ),
+  unselectedLabelStyle: TextStyle(
+    fontFamily: 'Roboto',
+    fontWeight: FontWeight.normal,
+  ),
+  items: [
+    BottomNavigationBarItem(
+      icon: Icon(Icons.home),
+      label: 'Home',
+      backgroundColor: isDarkMode ? Colors.black : Colors.white,
     ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.search),
+      label: 'Search',
+      backgroundColor: isDarkMode ? Colors.black : Colors.white,
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.add),
+      label: 'Add',
+      backgroundColor: isDarkMode ? Colors.black : Colors.white,
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.account_circle),
+      label: 'Profile',
+      backgroundColor: isDarkMode ? Colors.black : Colors.white,
+    ),
+  ],
+),
+
   );
 }
 

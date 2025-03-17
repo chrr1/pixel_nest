@@ -34,10 +34,14 @@ class _ImageDetailPageState extends State<ImageDetailPage>
   late AnimationController _animationController;
   late Animation<Offset> _slideAnimation;
   late VideoPlayerController? _videoController;
+  final TextEditingController _commentController = TextEditingController();
   bool isVideo = false;
   bool isLoading = true;
   List<MediaData> relatedPosts = [];
   String? currentUserId;
+  String? _username = '';
+  String? _email = '';
+  String? _profileImage;
 
   @override
   void initState() {
@@ -90,6 +94,94 @@ class _ImageDetailPageState extends State<ImageDetailPage>
 
     _fetchRelatedPosts();
   }
+
+ Future<void> _fetchUserDetails() async {
+  final String? mediaOwnerId = widget.mediaData.userId; // Ambil userId dari media yang ditekan
+  if (mediaOwnerId != null) {
+    final userRef = FirebaseDatabase.instance.ref().child('users/$mediaOwnerId');
+    
+    try {
+      final snapshot = await userRef.get();
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        setState(() {
+          _username = data['username'] ?? 'No Username'; // Nama pengguna
+          _email = data['email'] ?? 'No Email'; // Email pengguna
+          _profileImage = data['profileImage'] ?? ''; // URL Foto Profil
+        });
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
+    }
+  }
+}
+
+
+
+      void _showCommentDialog(BuildContext context) {
+  final brightness = MediaQuery.of(context).platformBrightness;
+  final backgroundColor = brightness == Brightness.dark ? Colors.black : Colors.white;
+  final textColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+  final cursorColor = brightness == Brightness.dark ? Colors.white : Colors.black;
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true, // Modal menyesuaikan dengan keyboard
+    backgroundColor: backgroundColor,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    builder: (context) {
+      return FractionallySizedBox(
+        heightFactor: 0.9, // Modal mengambil 90% tinggi layar
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom, // Menyesuaikan dengan keyboard
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextField(
+                controller: _commentController,
+                cursorColor: cursorColor, // Warna indikator ketik (kursor)
+                style: TextStyle(color: textColor), // Warna teks yang diketik
+                decoration: InputDecoration(
+                  hintText: "Tulis komentar...",
+                  hintStyle: TextStyle(color: brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[700]),
+                  filled: true,
+                  fillColor: brightness == Brightness.dark ? Colors.grey[900] : Colors.grey[200],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.send, color: Colors.blue),
+                    onPressed: () {
+                      String comment = _commentController.text;
+                      if (comment.isNotEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Komentar dikirim: $comment")),
+                        );
+                        Navigator.pop(context); // Tutup modal
+                        _commentController.clear();
+                      }
+                    },
+                  ),
+                ),
+                maxLines: 1, // Tidak tinggi, hanya satu baris
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 
   Future<void> _downloadMedia(String url) async {
   try {
@@ -316,6 +408,51 @@ void _startDownload(String url) async {
   });
 }
 
+void _toggleBookmark() async {
+  final User? user = FirebaseAuth.instance.currentUser;
+  final String userId = user?.uid ?? ''; // Ambil UID dari Firebase Auth
+
+  // Cek apakah user sudah login
+  if (userId.isEmpty) {
+    print("User belum login.");
+    return;
+  }
+
+  final databaseReference = FirebaseDatabase.instance.ref();
+  String idData = widget.mediaData.idData;
+
+  DatabaseReference mediaRef = databaseReference.child("uploads").child(idData);
+
+  // Ambil data bookmark dari Firebase
+  DataSnapshot snapshot = await mediaRef.child('bookmarks').get();
+  Map<dynamic, dynamic> bookmarksMap = snapshot.value != null
+      ? Map<dynamic, dynamic>.from(snapshot.value as Map)
+      : {};
+
+  // Cek apakah user sudah menyimpan atau belum
+  bool isCurrentlyBookmarked = bookmarksMap.containsKey(userId);
+
+  // Update bookmarks
+  if (isCurrentlyBookmarked) {
+    // Jika sudah tersimpan, maka hapus dari bookmark
+    bookmarksMap.remove(userId);
+  } else {
+    // Jika belum tersimpan, maka tambahkan bookmark
+    bookmarksMap[userId] = true;
+  }
+
+  // Simpan perubahan ke Firebase
+  await mediaRef.update({
+    'bookmarks': bookmarksMap,
+  });
+
+  // Update status lokal setelah update di Firebase
+  setState(() {
+    widget.mediaData.isBookmarked = !isCurrentlyBookmarked;
+  });
+}
+
+
 
 
 
@@ -471,6 +608,7 @@ const SizedBox(width: 0),
                 color: textColor,
                 fontSize: 17,
                 fontFamily: 'Poppins',
+                fontWeight: FontWeight.bold,
               ),
             ),
          ],
@@ -481,35 +619,40 @@ const SizedBox(width: 0),
 ),
 
       // Ikon Komentar dan teks
-      Padding(
-  padding: const EdgeInsets.only(right: 15.0), // Spasi antara ikon dan teks
-  child: Row(
-    children: [
-      Image.asset(
-        MediaQuery.of(context).platformBrightness == Brightness.dark
-            ? 'assets/images/chat_white.png'
-            : 'assets/images/chat.png',
-        width: 22.0,
-        height: 22.0,
-        color: null, // Mencegah pewarnaan otomatis
-      ),
-      const SizedBox(width: 6),
-      Text(
-        "0", // Teks yang ditambahkan
-        style: TextStyle(
-          color: textColor,
-          fontSize: 17,
-          fontFamily: 'Poppins',
-        ),
-      ),
-    ],
-  ),
-),
+      //   GestureDetector(
+      //     onTap: () => _showCommentDialog(context),
+      //     child: Padding(
+      //       padding: const EdgeInsets.only(right: 15.0),
+      //       child: Row(
+      //         mainAxisSize: MainAxisSize.min,
+      //         children: [
+      //           Image.asset(
+      //             MediaQuery.of(context).platformBrightness == Brightness.dark
+      //                 ? 'assets/images/chat_white.png'
+      //                 : 'assets/images/chat.png',
+      //             width: 22.0,
+      //             height: 22.0,
+      //           ),
+      //           const SizedBox(width: 6),
+      //           Text(
+      //   "0", // Teks yang ditambahkan
+      //   style: TextStyle(
+      //     color: textColor,
+      //     fontSize: 17,
+      //     fontFamily: 'Poppins',
+      //     fontWeight: FontWeight.bold,
+      //   ),
+      // ),
+      //         ],
+      //       ),
+      //     ),
+      //   ),
+      
 
 
 
 Padding(
-  padding: const EdgeInsets.only(right: 130.0),
+  padding: const EdgeInsets.only(right: 8.0),
   child: Row(
     children: [
       PopupMenuButton<String>(
@@ -657,16 +800,20 @@ Padding(
   ),// Spasi antara ikon dan teks
 ),
 
-Padding(
-  padding: const EdgeInsets.all(8.0),
-  child: Icon(
-    Icons.bookmark_border,
-    color: MediaQuery.of(context).platformBrightness == Brightness.dark
-        ? Colors.white
-        : Colors.black,
-    size: 33.0,
+GestureDetector(
+  onTap: _toggleBookmark,
+  child: Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: Icon(
+      widget.mediaData.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+      color: MediaQuery.of(context).platformBrightness == Brightness.dark
+          ? Colors.white
+          : Colors.black,
+      size: 33.0,
+    ),
   ),
 ),
+
 
 
 
@@ -686,11 +833,26 @@ Padding(
                           CrossAxisAlignment.start, // Pastikan teks di kiri
                       children: [
                      ListTile(
-  contentPadding: EdgeInsets.zero, // Hilangkan padding bawaan
-  leading: CircleAvatar(
-    radius: 15, // Sesuaikan ukuran avatar
-    backgroundImage: AssetImage('assets/images/2.jpg'),
-  ),
+                      
+    contentPadding: EdgeInsets.only(left: 8), 
+  leading:  CircleAvatar(
+  radius: 15,
+  backgroundColor: Colors.blueAccent,
+  backgroundImage: (widget.mediaData.profile.isNotEmpty)
+      ? NetworkImage(widget.mediaData.profile)
+      : null,
+  child: (widget.mediaData.profile.isEmpty)
+      ? Text(
+          widget.mediaData.uploadedBy.isNotEmpty ? widget.mediaData.uploadedBy[0].toUpperCase() : 'A',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: Colors.white,
+          ),
+        )
+      : null,
+),
+
   title: Text(
     uploadedBy,
     style: TextStyle(
@@ -703,9 +865,9 @@ Padding(
 ),
 
 
-                        SizedBox(height: 16),
+                        
                         Padding(
-  padding: const  EdgeInsets.only(left: 8.0, right: 8.0),
+  padding: const  EdgeInsets.only(left: 8.0, right: 8.0, top: 0.0),
   child: Text(
     title,
     style: TextStyle(
@@ -717,7 +879,7 @@ Padding(
     textAlign: TextAlign.left,
   ),
 ),
-SizedBox(height: 8),
+
 Padding(
   padding:  const EdgeInsets.only(left: 8.0, right: 8.0),
   child: Text(
@@ -730,7 +892,7 @@ Padding(
     textAlign: TextAlign.left,
   ),
 ),
-SizedBox(height: 8),
+
 Padding(
   padding: const EdgeInsets.only(left: 8.0, right: 8.0),
   child: Wrap(
@@ -767,9 +929,24 @@ Padding(
                   ),
                 ),
 
+                
+  Padding(
+  padding: const  EdgeInsets.only(left: 14.0, right: 8.0, top: 4.0),
+  child: Text(
+    'Related Posts',
+    style: TextStyle(
+      fontSize: 28,
+      fontWeight: FontWeight.bold,
+      fontFamily: 'Poppins',
+      color: textColor,
+    ),
+    textAlign: TextAlign.left,
+  ),
+),
+
                 // Related Posts
                 Padding(
-  padding: const EdgeInsets.all(8.0),
+  padding: const  EdgeInsets.only(left: 14.0, right: 8.0, top: 0),
   child: MasonryGridView.builder(
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),

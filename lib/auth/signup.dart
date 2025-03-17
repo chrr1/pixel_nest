@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pixel_nest/page/home_page.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -12,6 +16,8 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ImagePicker _picker = ImagePicker();
+  File? _profileImage;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -23,8 +29,9 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _isPasswordVisible = false;
   bool _isAgreed = false;
   bool _isLoading = false;
+  
 
-  Future<void> _signUp() async {
+ Future<void> _signUp() async {
     if (!_isAgreed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('You must agree to the terms and conditions')),
@@ -44,32 +51,39 @@ class _SignUpPageState extends State<SignUpPage> {
 
       final User? user = userCredential.user;
       if (user != null) {
+        String? profileImageUrl;
+
+        if (_profileImage != null) {
+          final storageRef = FirebaseStorage.instance.ref().child("profile_images/${user.uid}.jpg");
+          await storageRef.putFile(_profileImage!);
+          profileImageUrl = await storageRef.getDownloadURL();
+        }
+
         await user.updateDisplayName(
           '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         );
+        if (profileImageUrl != null) {
+          await user.updatePhotoURL(profileImageUrl);
+        }
 
-        // Simpan data pengguna menggunakan UID Firebase Authentication
         DatabaseReference userRef = FirebaseDatabase.instance.ref("users");
-
-        // Menggunakan UID yang sudah ada di Firebase Authentication
         String uid = user.uid;
 
-        // Simpan data pengguna di Realtime Database
         await userRef.child(uid).set({
           "firstName": _firstNameController.text.trim(),
           "lastName": _lastNameController.text.trim(),
           "phone": _phoneController.text.trim(),
           "email": _emailController.text.trim(),
           "username": _usernameController.text.trim(),
-          "followers": 0, // Inisialisasi kolom followers dengan 0
-          "following": 0, // Inisialisasi kolom following dengan 0
+          "profileImage": profileImageUrl ?? "",
+          "followers": 0,
+          "following": 0,
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account created successfully!')),
         );
 
-        // Navigate to the next page
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => HomePage()),
@@ -82,6 +96,15 @@ class _SignUpPageState extends State<SignUpPage> {
     } finally {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
       });
     }
   }
@@ -117,6 +140,22 @@ class _SignUpPageState extends State<SignUpPage> {
                     color: textColor,
                   ),
                 ),
+                const SizedBox(height: 24.0),
+                Align(
+  alignment: Alignment.center, // Pusatkan horizontal
+  child: GestureDetector(
+    onTap: _pickImage,
+    child: CircleAvatar(
+      radius: 50,
+      backgroundColor: Colors.grey[300],
+      backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
+      child: _profileImage == null
+          ? Icon(Icons.camera_alt, color: Colors.grey[800], size: 40)
+          : null,
+    ),
+  ),
+),
+
                 const SizedBox(height: 24.0),
                 TextField(
                   controller: _usernameController, // Input untuk username

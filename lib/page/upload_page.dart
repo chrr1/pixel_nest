@@ -18,6 +18,7 @@ class UploadPage extends StatefulWidget {
 
 class _UploadPageState extends State<UploadPage> with AutomaticKeepAliveClientMixin{
   String? _mediaType;
+  String? _profileImage;
 
 
   @override
@@ -39,6 +40,8 @@ class _UploadPageState extends State<UploadPage> with AutomaticKeepAliveClientMi
     if (widget.filePath != null) {
       _initializeMedia();
     }
+
+     _fetchUserDetails(); 
   }
 
   Future<String?> _uploadToStorage(String filePath) async {
@@ -110,6 +113,7 @@ class _UploadPageState extends State<UploadPage> with AutomaticKeepAliveClientMi
       'mediaUrl': downloadUrl,
       'timestamp': DateTime.now().toIso8601String(),
       'uploadedBy': username,
+      'profile': _profileImage,
       'userId': userId,
       'likes': 0,
       'isLiked': {}, // Inisialisasi sebagai Map kosong
@@ -158,6 +162,26 @@ Future<String?> _getCurrentUsername() async {
     return snapshot.child('username').value as String?;
   }
   return null;
+}
+
+ Future<void> _fetchUserDetails() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
+    
+    try {
+      final snapshot = await userRef.get();
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        setState(() {
+          
+          _profileImage = data['profileImage'] ?? ''; // URL Foto Profil
+        });
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
+    }
+  }
 }
 
 

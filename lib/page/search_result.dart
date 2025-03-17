@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math'; 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/file.dart';
@@ -12,15 +12,13 @@ import 'package:shimmer/shimmer.dart';
 
 class SearchResultPage extends StatelessWidget {
   final List<MediaData> searchResults;
-  
-
   final String initialQuery; // Tambahkan ini
 
-const SearchResultPage({
-  Key? key,
-  required this.searchResults,
-  required this.initialQuery, // Tambahkan ini
-}) : super(key: key);
+  const SearchResultPage({
+    Key? key,
+    required this.searchResults,
+    required this.initialQuery, // Tambahkan ini
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +27,18 @@ const SearchResultPage({
 
     return Scaffold(
       backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: backgroundColor, // Sesuai tema
+        elevation: 0, // Hilangkan bayangan
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.blue), // Ikon back
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          "Hasil Pencarian: $initialQuery",
+          style: const TextStyle(color: Colors.blue, fontFamily: 'Poppins',),
+        ),
+      ),
       body: MasonryGridView.builder(
         itemCount: searchResults.length,
         gridDelegate: const SliverSimpleGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
@@ -86,6 +96,7 @@ const SearchResultPage({
     );
   }
 }
+
 
 class VideoPlayerWidget extends StatefulWidget {
   final String videoPath;

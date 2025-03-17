@@ -228,17 +228,8 @@ Future<void> _captureMediaFromCamera() async {
       );
     } else if (index == 2) {
      _showAddOptions(context);
+    
     } else if (index == 3) {
-      Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              MediaPage(),
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-        ),
-      );
-    } else if (index == 4) {
       Navigator.push(
         context,
         PageRouteBuilder(
@@ -273,7 +264,7 @@ Future<void> _captureMediaFromCamera() async {
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
       Text(
-        "Semua",
+        "All Posts",
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
@@ -286,7 +277,7 @@ Future<void> _captureMediaFromCamera() async {
       ),
       SizedBox(height: 0), // Menghilangkan jarak antara teks dan garis
       Container(
-        width: 57, // Panjang garis
+        width: 68, // Panjang garis
         height: 4,  // Ketebalan garis
         decoration: BoxDecoration(
           color: isDarkMode ? Colors.white54 : Colors.black54,
@@ -381,14 +372,7 @@ Future<void> _captureMediaFromCamera() async {
             label: 'Add',
             backgroundColor: isDarkMode ? Colors.black : Colors.white, // Background color based on theme
           ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.notifications,
-             
-            ),
-            label: 'Notification',
-            backgroundColor: isDarkMode ? Colors.black : Colors.white, // Background color based on theme
-          ),
+          
           BottomNavigationBarItem(
             icon: Icon(
               Icons.account_circle,

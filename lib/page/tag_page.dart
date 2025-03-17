@@ -72,18 +72,27 @@ final String currentUserId = user?.uid ?? '';
   Widget build(BuildContext context) {
     super.build(context);
     // Menentukan apakah menggunakan mode gelap atau terang
+    final brightness = MediaQuery.of(context).platformBrightness;
+    final backgroundColor = brightness == Brightness.dark ? Colors.black : Colors.white;
     bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
-     Color backgroundColor = isDarkMode ? Colors.black : Colors.grey[100]!;
-    Color textColor = isDarkMode ? Colors.white : Colors.black;
+    
+    Color textColor = isDarkMode ? const Color.fromARGB(255, 228, 160, 160) : Colors.black;
 
     return Scaffold(
   appBar: AppBar(
-    title: Text(
-      "#${widget.hashtag}",
-      style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-    ),
-    backgroundColor: backgroundColor,
+  title: Text(
+    "#${widget.hashtag}",
+    style: TextStyle(color: brightness == Brightness.dark ? Colors.white : Colors.black,fontFamily: 'Poppins',
+               ),
   ),
+  backgroundColor: backgroundColor,
+  elevation: 0, // Menghilangkan bayangan
+  leading: IconButton(
+    icon: Icon(Icons.arrow_back, color: brightness == Brightness.dark ? Colors.white : Colors.black),
+    onPressed: () => Navigator.pop(context),
+  ),
+),
+
   backgroundColor: backgroundColor, // Tambahkan ini
   body: Padding(
     padding: const EdgeInsets.all(8.0),
